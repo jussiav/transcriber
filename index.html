@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoVex Transcriber</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="recordingIndicator"></div>
+  <div id="connectionBadge"></div>
+  <div class="app">
+
+    <header class="app-header">
+      <h1 class="app-title">
+        <img src="autovex-logo.svg" alt="AutoVex" class="logo-img">
+        <span class="title-text">Transcriber v0.1</span>
+      </h1>
+      <div class="header-controls">
+        <div class="input-group">
+          <label for="provider">Provider</label>
+          <select id="provider">
+            <option value="assemblyai">AssemblyAI</option>
+            <option value="whisper" selected>OpenAI Whisper</option>
+          </select>
+        </div>
+        <div class="input-group" id="assemblyaiKeyGroup">
+          <label for="apiKey">AssemblyAI API Key</label>
+          <input type="password" id="apiKey" placeholder="Enter API key" autocomplete="off" spellcheck="false">
+          <span class="key-preview" id="apiKeyPreview"></span>
+        </div>
+        <div class="input-group" id="whisperKeyGroup" hidden>
+          <label for="openaiKey">OpenAI API Key</label>
+          <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+          <span class="key-preview" id="openaiKeyPreview"></span>
+        </div>
+        <div class="input-group">
+          <label for="language">Language</label>
+          <select id="language">
+            <option value="fi">Finnish</option>
+            <option value="en">English</option>
+            <option value="">Auto-detect</option>
+          </select>
+        </div>
+        <div class="input-group live-toggle-group" id="liveToggleGroup">
+          <label for="liveMode" class="toggle-label">
+            <input type="checkbox" id="liveMode" checked>
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            Live transcript
+          </label>
+          <span class="toggle-note">Near-real-time preview — replaced by accurate transcript after stop</span>
+          <span id="liveStatus" class="live-status" hidden></span>
+        </div>
+      </div>
+    </header>
+
+    <div class="session-info-bar">
+      <div class="session-field">
+        <label for="intervieweeName">Interviewee</label>
+        <input type="text" id="intervieweeName" placeholder="Name, role, or other identifier…">
+      </div>
+      <div class="session-field session-field-wide">
+        <label for="sessionNotes">Session notes</label>
+        <input type="text" id="sessionNotes" placeholder="Date, topic, round, location…">
+      </div>
+    </div>
+
+    <div class="mode-tabs">
+      <button id="modeRecordBtn" class="mode-tab active">&#9679; Record</button>
+      <button id="modeUploadBtn" class="mode-tab">&#8679; Upload File</button>
+    </div>
+
+    <section id="recordSection" class="recording-section">
+      <canvas id="waveform" aria-hidden="true"></canvas>
+      <div class="recording-bar">
+        <span id="timer" class="timer" aria-live="polite">00:00:00</span>
+        <div class="recording-buttons">
+          <button id="startBtn" class="btn btn-start">&#9654; Start Recording</button>
+          <button id="stopBtn" class="btn btn-stop" disabled>&#9632; Stop &amp; Transcribe</button>
+        </div>
+        <button id="downloadAudioBtn" class="btn btn-secondary" disabled title="Download raw audio as backup">&#8659; Save Audio</button>
+        <button id="newSessionBtn" class="btn btn-secondary" hidden>&#8635; New Session</button>
+      </div>
+    </section>
+
+    <section id="uploadSection" class="upload-section" hidden>
+      <label class="upload-area" id="uploadArea">
+        <input type="file" id="fileInput" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.webm,.flac,.aac,.ogg,.wma,.mp4">
+        <span class="upload-icon">&#8679;</span>
+        <span class="upload-label-text">Click to choose audio or video file</span>
+        <span id="fileName" class="file-name"></span>
+      </label>
+      <div class="upload-bar">
+        <button id="transcribeFileBtn" class="btn btn-start" disabled>&#9654; Transcribe File</button>
+        <button id="newSessionBtn2" class="btn btn-secondary" hidden>&#8635; New Session</button>
+        <span id="formatHint" class="format-hint"></span>
+      </div>
+    </section>
+
+    <section class="status-section" id="statusSection" hidden>
+      <div class="status-row">
+        <div id="statusMessage" class="status-message"></div>
+        <button id="cancelBtn" class="btn btn-cancel" hidden>&#10005; Cancel</button>
+      </div>
+      <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
+    </section>
+
+    <div class="main-content">
+
+      <section class="transcript-section">
+        <div class="section-header">
+          <h2>Transcript</h2>
+          <div id="speakerRename" class="speaker-rename" hidden></div>
+        </div>
+        <div id="transcriptContainer" class="transcript-container">
+          <p class="placeholder">Transcript appears here after processing.</p>
+        </div>
+      </section>
+
+      <section class="notes-section">
+        <h2>Notes</h2>
+        <div class="note-input-row">
+          <input type="text" id="noteInput" placeholder="Note at current timestamp… (Enter)" disabled>
+          <button id="addNoteBtn" class="btn btn-note" disabled>Add</button>
+        </div>
+        <div id="notesList" class="notes-list" aria-live="polite"></div>
+      </section>
+
+    </div>
+
+    <footer class="app-footer">
+      <div class="export-options" id="exportOptions" hidden>
+        <button id="exportBtn" class="btn btn-export">&#8659; Export CSV (interleaved)</button>
+        <button id="exportSeparateBtn" class="btn btn-export-secondary">&#8659; Export separate files</button>
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="config.js" onerror="void 0"></script>
+  <script src="app.js"></script>
+</body>
+</html>
