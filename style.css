@@ -180,6 +180,7 @@ html, body {
 }
 
 .input-group input[type="password"],
+.input-group input[type="text"],
 .input-group select {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -191,7 +192,7 @@ html, body {
   transition: border-color 0.15s;
 }
 
-.input-group input[type="password"] { width: 240px; font-family: monospace; }
+#apiKeyField { width: 200px; font-family: monospace; font-size: 0.8rem; }
 .input-group select { width: 140px; cursor: pointer; }
 
 .input-group input:focus,

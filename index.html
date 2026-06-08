@@ -24,15 +24,9 @@
             <option value="whisper" selected>OpenAI Whisper</option>
           </select>
         </div>
-        <div class="input-group" id="assemblyaiKeyGroup">
-          <label for="apiKey">AssemblyAI API Key</label>
-          <input type="password" id="apiKey" placeholder="Enter API key" autocomplete="off" spellcheck="false">
-          <span class="key-preview" id="apiKeyPreview"></span>
-        </div>
-        <div class="input-group" id="whisperKeyGroup" hidden>
-          <label for="openaiKey">OpenAI API Key</label>
-          <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
-          <span class="key-preview" id="openaiKeyPreview"></span>
+        <div class="input-group">
+          <label id="keyLabel">OpenAI API Key</label>
+          <input type="text" id="apiKeyField" placeholder="sk-..." autocomplete="off" spellcheck="false" data-1p-ignore data-lpignore="true">
         </div>
         <div class="input-group">
           <label for="language">Language</label>
@@ -120,7 +114,7 @@
       <section class="notes-section">
         <h2>Notes</h2>
         <div class="note-input-row">
-          <input type="text" id="noteInput" placeholder="Note at current timestamp… (Enter)" disabled>
+          <input type="text" id="noteInput" placeholder="Note at current timestamp… (Enter)" disabled autocomplete="off" data-1p-ignore data-lpignore="true">
           <button id="addNoteBtn" class="btn btn-note" disabled>Add</button>
         </div>
         <div id="notesList" class="notes-list" aria-live="polite"></div>

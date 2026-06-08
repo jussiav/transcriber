@@ -36,11 +36,22 @@ const state = {
 // ---------------------------------------------------------------------------
 const $ = id => document.getElementById(id);
 const providerSelect      = $('provider');
-const apiKeyInput         = $('apiKey');
-const openaiKeyInput      = $('openaiKey');
-const assemblyaiKeyGroup  = $('assemblyaiKeyGroup');
-const whisperKeyGroup     = $('whisperKeyGroup');
+const apiKeyField         = $('apiKeyField');
+const keyLabel            = $('keyLabel');
 const liveToggleGroup     = $('liveToggleGroup');
+
+// Per-provider key store — persists values when switching providers
+const keyStore = { assemblyai: '', whisper: '' };
+
+function getActiveKey() { return apiKeyField.value.trim(); }
+
+function syncKeyStore() {
+  keyStore[providerSelect.value] = apiKeyField.value;
+}
+
+// Aliases for legacy references throughout the code
+const apiKeyInput    = { get value() { return apiKeyField.value; }, set value(v) { apiKeyField.value = v; }, get disabled() { return apiKeyField.disabled; }, set disabled(v) { apiKeyField.disabled = v; } };
+const openaiKeyInput = apiKeyInput;
 const languageSelect      = $('language');
 const startBtn            = $('startBtn');
 const stopBtn             = $('stopBtn');
@@ -72,8 +83,6 @@ const transcribeFileBtn   = $('transcribeFileBtn');
 const intervieweeName     = $('intervieweeName');
 const sessionNotes        = $('sessionNotes');
 const formatHint          = $('formatHint');
-const apiKeyPreview       = $('apiKeyPreview');
-const openaiKeyPreview    = $('openaiKeyPreview');
 
 const recordingIndicator  = $('recordingIndicator');
 const connectionBadge     = $('connectionBadge');
@@ -94,23 +103,13 @@ function setViewportState(state) {
   if (state) recordingIndicator.classList.add(state);
 }
 
-function updateKeyPreview(input, previewEl) {
-  const v = input.value;
-  previewEl.textContent = v.length > 6
-    ? v.slice(0, 6) + '•'.repeat(Math.min(v.length - 6, 20))
-    : v;
-}
 
 // Inject keys from config.js if present (gitignored locally, absent on GitHub Pages)
 if (window.APP_CONFIG) {
-  if (window.APP_CONFIG.assemblyaiKey) apiKeyInput.value = window.APP_CONFIG.assemblyaiKey;
-  if (window.APP_CONFIG.openaiKey)     openaiKeyInput.value = window.APP_CONFIG.openaiKey;
+  if (window.APP_CONFIG.assemblyaiKey) keyStore.assemblyai = window.APP_CONFIG.assemblyaiKey;
+  if (window.APP_CONFIG.openaiKey)     keyStore.whisper    = window.APP_CONFIG.openaiKey;
 }
 
-updateKeyPreview(apiKeyInput, apiKeyPreview);
-updateKeyPreview(openaiKeyInput, openaiKeyPreview);
-apiKeyInput.addEventListener('input', () => updateKeyPreview(apiKeyInput, apiKeyPreview));
-openaiKeyInput.addEventListener('input', () => updateKeyPreview(openaiKeyInput, openaiKeyPreview));
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -256,7 +255,7 @@ async function handleStop() {
   stopBtn.disabled = true;
 
   const provider = providerSelect.value;
-  const key = provider === 'whisper' ? openaiKeyInput.value.trim() : apiKeyInput.value.trim();
+  const key = getActiveKey();
 
   if (!key) {
     const label = provider === 'whisper' ? 'OpenAI' : 'AssemblyAI';
@@ -634,7 +633,7 @@ async function processLiveChunk() {
   const chunkStartMs = from * 1000; // 1 MediaRecorder chunk ≈ 1s
 
   const provider = providerSelect.value;
-  const key = provider === 'whisper' ? openaiKeyInput.value.trim() : apiKeyInput.value.trim();
+  const key = getActiveKey();
   if (!key) return;
 
   // WebM header lives in chunk 0 — must prepend it to every non-first slice
@@ -1044,7 +1043,7 @@ transcribeFileBtn.addEventListener('click', async () => {
   if (!file) return;
 
   const provider = providerSelect.value;
-  const key = provider === 'whisper' ? openaiKeyInput.value.trim() : apiKeyInput.value.trim();
+  const key = getActiveKey();
   if (!key) {
     const label = provider === 'whisper' ? 'OpenAI' : 'AssemblyAI';
     setStatus(`Enter your ${label} API key first.`, 0);
@@ -1121,8 +1120,7 @@ function resetSession() {
   liveModeCheckbox.disabled = false;
   providerSelect.disabled = false;
   languageSelect.disabled = false;
-  apiKeyInput.disabled = false;
-  openaiKeyInput.disabled = false;
+  apiKeyField.disabled = false;
   intervieweeName.disabled = false;
   sessionNotes.disabled = false;
   // Reset upload section
@@ -1133,20 +1131,26 @@ function resetSession() {
   uploadArea._droppedFile = null;
 }
 
-providerSelect.addEventListener('change', () => {
-  const isWhisper = providerSelect.value === 'whisper';
-  assemblyaiKeyGroup.hidden = isWhisper;
-  whisperKeyGroup.hidden = !isWhisper;
-  liveToggleGroup.hidden = false;
+const KEY_LABELS       = { assemblyai: 'AssemblyAI API Key', whisper: 'OpenAI API Key' };
+const KEY_PLACEHOLDERS = { assemblyai: 'Enter API key',      whisper: 'sk-...' };
+
+function applyProviderUI(previousProvider) {
+  if (previousProvider) keyStore[previousProvider] = apiKeyField.value;
+  const p = providerSelect.value;
+  keyLabel.textContent    = KEY_LABELS[p];
+  apiKeyField.placeholder = KEY_PLACEHOLDERS[p];
+  apiKeyField.value       = keyStore[p] || '';
+  liveToggleGroup.hidden  = false;
   updateFormatHint();
+}
+
+providerSelect.addEventListener('change', function () {
+  applyProviderUI(this._prev);
+  this._prev = providerSelect.value;
 });
+providerSelect._prev = providerSelect.value;
 
-updateFormatHint();
-
-// Init provider UI for default selection (Whisper)
-const _isWhisper = providerSelect.value === 'whisper';
-assemblyaiKeyGroup.hidden = _isWhisper;
-whisperKeyGroup.hidden = !_isWhisper;
+applyProviderUI(null);
 
 // ---------------------------------------------------------------------------
 // Canvas resize
