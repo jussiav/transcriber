@@ -38,6 +38,7 @@ const $ = id => document.getElementById(id);
 const providerSelect      = $('provider');
 const apiKeyField         = $('apiKeyField');
 const keyLabel            = $('keyLabel');
+const audioSourceSelect   = $('audioSource');
 const liveToggleGroup     = $('liveToggleGroup');
 
 // Per-provider key store — persists values when switching providers
@@ -160,9 +161,18 @@ function speakerLabel(code) {
 async function startRecording() {
   let stream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    if (audioSourceSelect.value === 'tab') {
+      stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+      stream.getVideoTracks().forEach(t => t.stop());
+      if (!stream.getAudioTracks().length) {
+        alert('No audio captured. Make sure to enable "Share tab audio" in the browser picker.');
+        return;
+      }
+    } else {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    }
   } catch (e) {
-    alert(`Microphone access denied: ${e.message}`);
+    alert(`Audio access denied: ${e.message}`);
     return;
   }
 
@@ -211,6 +221,7 @@ async function startRecording() {
   noteInput.disabled = false;
   addNoteBtn.disabled = false;
   languageSelect.disabled = true;
+  audioSourceSelect.disabled = true;
   liveModeCheckbox.disabled = true;
   intervieweeName.disabled = true;
   sessionNotes.disabled = true;
@@ -1121,6 +1132,7 @@ function resetSession() {
   providerSelect.disabled = false;
   languageSelect.disabled = false;
   apiKeyField.disabled = false;
+  audioSourceSelect.disabled = false;
   intervieweeName.disabled = false;
   sessionNotes.disabled = false;
   // Reset upload section
