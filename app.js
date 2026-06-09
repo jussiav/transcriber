@@ -465,21 +465,15 @@ async function runWhisperTranscription(blob, key) {
   state.providerUsed = 'whisper';
   state.abortController = new AbortController();
   const sizeMB = blob.size / 1024 / 1024;
-  const isWav = blob.type === 'audio/wav' || blob.type === 'audio/wave';
-
-  if (sizeMB > 24.5 && !isWav) {
-    setStatus(`Audio is ${sizeMB.toFixed(1)}MB — exceeds Whisper's 25MB limit. Re-export as MP3 (90% smaller) or switch to AssemblyAI.`, 0);
-    return;
-  }
 
   let blobs = [blob];
-  if (sizeMB > 24.5 && isWav) {
-    setStatus(`WAV file is ${sizeMB.toFixed(1)}MB — splitting into chunks…`, 10);
+  if (sizeMB > 24.5) {
+    setStatus(`File is ${sizeMB.toFixed(1)}MB — decoding and splitting into chunks…`, 5, true);
     try {
-      blobs = await splitWavBlob(blob, 24 * 1024 * 1024);
-      setStatus(`Split into ${blobs.length} chunks — transcribing…`, 20);
+      blobs = await decodeAndChunkAudio(blob);
+      setStatus(`Split into ${blobs.length} chunks — transcribing…`, 15, true);
     } catch (e) {
-      setStatus(`Could not split WAV: ${e.message}. Re-export as MP3 or switch to AssemblyAI.`, 0);
+      setStatus(`Could not process audio: ${e.message}. Try a different format or switch to AssemblyAI.`, 0);
       return;
     }
   }
@@ -527,6 +521,55 @@ async function runWhisperTranscription(blob, key) {
     setViewportState('is-error');
     console.error('Whisper error:', err);
   }
+}
+
+async function decodeAndChunkAudio(blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+  // Decode at 16kHz — Whisper's native rate, keeps chunk sizes small
+  const audioCtx = new AudioContext({ sampleRate: 16000 });
+  let audioBuffer;
+  try {
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  } finally {
+    audioCtx.close();
+  }
+
+  // Mix all channels to mono
+  const totalSamples = audioBuffer.length;
+  const mono = new Float32Array(totalSamples);
+  for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+    const data = audioBuffer.getChannelData(ch);
+    for (let i = 0; i < totalSamples; i++) mono[i] += data[i] / audioBuffer.numberOfChannels;
+  }
+
+  // Split into ≤24MB WAV chunks (16kHz mono 16-bit = 32KB/s → ~782s per chunk)
+  const maxBytes = 24 * 1024 * 1024;
+  const samplesPerChunk = Math.floor((maxBytes - 44) / 2); // 2 bytes per sample
+  const chunks = [];
+  for (let offset = 0; offset < totalSamples; offset += samplesPerChunk) {
+    chunks.push(encodeWav(mono.slice(offset, offset + samplesPerChunk), 16000));
+  }
+  return chunks;
+}
+
+function encodeWav(float32Array, sampleRate) {
+  const int16 = new Int16Array(float32Array.length);
+  for (let i = 0; i < float32Array.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32Array[i]));
+    int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  const dataLen = int16.buffer.byteLength;
+  const buf = new ArrayBuffer(44 + dataLen);
+  const v = new DataView(buf);
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); v.setUint32(4, 36 + dataLen, true);
+  ws(8, 'WAVE'); ws(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); // PCM
+  v.setUint16(22, 1, true);  v.setUint32(24, sampleRate, true); // mono, sample rate
+  v.setUint32(28, sampleRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  ws(36, 'data'); v.setUint32(40, dataLen, true);
+  new Uint8Array(buf, 44).set(new Uint8Array(int16.buffer));
+  return new Blob([buf], { type: 'audio/wav' });
 }
 
 async function splitWavBlob(blob, maxBytes) {
@@ -1015,7 +1058,7 @@ modeRecordBtn.addEventListener('click', () => {
   modeUploadBtn.classList.remove('active');
   recordSection.hidden = false;
   uploadSection.hidden = true;
-  liveToggleGroup.hidden = providerSelect.value === 'whisper';
+  liveToggleGroup.hidden = false;
 });
 
 modeUploadBtn.addEventListener('click', () => {
